@@ -652,8 +652,8 @@ F T     T  F    F    F     F    F    T    T     T  T  F  F  T  T  F  F  F  T  Fa
 > awrd> 0> >[-] >(-) >{AA} >"-" ><-> ><x> >awrd >0 >' >+ >- >. >, >: <> >> >\ >/
 T T     T  T    T    T     T    T    T    T     T  T  T  T  T  T  T  T  T  T  T
 \ word\ 0\ \[-] \(-) \{AA} \"-" \<-> \<x> \word \0 \' \+ \- \. \, \: \< \> \\ \/
-F Fa    T  F    F    F     F    T    F    F     F  F  F  F  F  F  F  T  T  T  F
-/ word/ 0/ /[-] /(-) /{AA} /"-" /<-> /<x> /word /0 /' /+ /- /. /, /: /< /> /\ //
+F Fa    F1/1 F  F    F     F    T    F    F     F  F  F  F  F  F  F  T  T  T  F
+/ word/ 1/ /[-] /(-) /{AA} /"-" /<-> /<x> /word /0 /' /+ /- /. /, /: /< /> /\ //
 }
 result: true
 interleave: func [a b /local r][r: copy a forall b [insert r: next r b/1 r: next r] head r]
