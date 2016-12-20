@@ -6,7 +6,8 @@ REBOL [
     Date: 10-Dec-2016
     Version: 1.1.1
     Author: [Mark Ingram]
-    Exports: [rebol?]
+    Exports: [rebol? analyze]
+    Usage: [clear output if rebol? read %some-file.reb [analyze output]]
 ]
 
 ; voluntary textual formatting of this ASCII file (or, equivalently, UTF-8 file with no multiple-byte encodings):
@@ -442,6 +443,8 @@ emit: emitt: show: func [x /only] [] ; debugging and testing functions called by
 ;===================
 ;
 ; debugging
+;            [Ed. -- apparently I'm multiline OK for all of the debugging etc. But I will not apologize for demanding blank lines in the PEG proper.]
+also prin "" any [unset? :multiline multiline] ; for console pasting, empty line finishes
 ;
  output: copy "" ; debugging strings can be both stored and displayed -- see the two choices of definitions for 'emit below
 emit: func [a][append output a] ; quiet debugging
@@ -452,9 +455,52 @@ emitt: func [a][emit join a newline]
 ; 'show is affected by every match, via 'type, but 'show itself is only called from 'lexemes, 'path, 'path-tail, and 'unreparsed-mid-or-end
 show: func ["item detailer, uses 'type, space instead of newline with /only" x [string! binary!] /only][emit join "" [type " " to-string x] if type = 'string [emit join " " utf8-show to binary! x] emit either only " " "^/"]
 ;
+; analysis
+;            Report lexical item counts -- determined via parsing the debugging output.
+report-vars: [headed top-count container-count item-count path-count lp gp sp bp block-count eval-block-count construct-count ; sadly, something has to poison the outer context, otherwise it forces bind and/or duplication hell
+    numerics n1 n2 n3 n4 n5 n6 n7 n8 idioms ref-words rw iw def-words lw gw sw bw coheres c1 c2 c3 limiteds l1 l2 l3 l4 l5 l6 nc]
+stats: context append map-each v report-vars [to set-word! v] [0 bind report-vars self ; report-vars is deliberately modified
+     x: c: "" ; hold get/set/lit decorations
+    words: [(x: c: "") copy x [any "'" any ":"] ["set-word" copy c [some ":"] | "arrow-word" | "slashes-word" | "normal-word" | "mid-word" | "word-not-slashes"]] ; the (bare) words that start paths are not counted
+   def-word-types: [words (if x/1 = #"'" [++ lw] if x/1 = #":" [++ gw] if all [x = "" c/1 = #":"] [++ sw] if all [x = "" c = ""] [++ bw])]
+   ref-word-types: ["refinement" (++ rw) | "issue" (++ iw)]
+  idiomatic-types: [def-word-types (++ def-words) | ref-word-types (++ ref-words)]
+  numeric-types: ["tuple" (++ n1) | opt "path-" "date" (++ n2) | "time" (++ n3) | "pair" (++ n4) | "percent" (++ n5) | "money" (++ n6) | "decimal" (++ n7) | "integer" (++ n8)]
+  cohesive-types: [["bare-file-unslashed" | "bare-file-nocolon" | "bare-file"] (++ c1) | ["email-nocolon" | "email"] (++ c2) | ["dot-url-nocolon" | "word-url-nocolon" | "dot-url" | "word-url-unslashed" | "url"] (++ c3)]
+  limitive-types: ["comment" (++ l1) | "binary" (++ l2) | "tag" (++ l3) | "char" (++ l4) | "string" (++ l5) | "quote-file" (++ l6)]
+ isolate-types: [numeric-types (++ numerics) | idiomatic-types (++ idioms) | cohesive-types (++ coheres) | limitive-types (++ limiteds) | "none-value" (++ nc)]
+   path-detail: [path-count: path-count + 1 if x/1 = #"'" [++ lp] if x/1 = #":" [++ gp] if all [x = "" c/1 = #":"] [++ sp] if all [x = "" c = ""][++ bp]]
+  path-types: ["path-word" thru "path-start" newline some [all-types thru newline] (x: c: "") copy x [any "'" any ":"] "path-finish" copy c [any ":"] (do path-detail)]
+   line-trail: [thru newline any ["Next item lined" thru newline]]
+  block-types: ["block-begin" line-trail any [all-types line-trail] "block-end" (++ block-count)]
+  eval-block-types: ["eval-block-begin" line-trail any [all-types line-trail] "eval-block-end" (++ eval-block-count)]
+  construct-types: ["construct-begin" line-trail any [all-types line-trail] "construct-end" (++ construct-count)]
+ container-types: [path-types | block-types | eval-block-types | construct-types]
+all-types: [container-types (++ container-count) | isolate-types (++ item-count)]
+lex: [any [all-types line-trail (++ top-count)]]
+report: [
+    join pick ["" "Embedded script.^/" "Header found.^/"] headed + 1
+    "Top-level:" top-count newline
+    "Total:" container-count + item-count newline
+    "Containers:" container-count "--" "Paths:" path-count "-" "Lit paths" lp "Get paths" gp "Set paths" sp "Bare paths" bp "- Blocks:" block-count "- Eval blocks:" eval-block-count "- Constructs:" construct-count newline
+    "Isolates total:" item-count newline
+    "Numerics:" numerics "-" "Tuples:" n1 "-" "Dates:" n2 "-" "Times:" n3 "-" "Pairs:" n4 "-" "Percents:" n5 "-" "Moneys:" n6 "-" "Decimals:" n7 "-" "Integers:" n8 newline
+    "Words:" idioms "--" "Referers:" ref-words "-" "Refinements" rw "Issues" iw "--" "Definers:" def-words "-" "Lit words" lw "Get words" gw "Set words" sw "Bare words" bw newline
+    "Cohesives:" coheres "-" "Urls:" c3 "-" "Emails:" c2 "-" "Unquoted files:" c1 newline
+    "Limitives:" limiteds "-" "Quoted files:" l6 "-" "Strings:" l5 "-" "Chars:" l4 "-" "Tags:" l3 "-" "Binaries:" l2 "-" "Comments:" l1 newline
+    "None-values:" nc newline
+]
+analyze: func ["Report lexical statistics."
+    output [string!] "Must be the output of a clean and successful REBOL? invocation."
+][
+    set report-vars 0
+    parse output ["Embedded." line-trail lex "Contents." line-trail lex "End." to end (headed: 1) | "Headed." line-trail lex "Contents." line-trail lex (headed: 2) | lex]
+    print report
+]
+] ; end stats context
+set 'analyze :stats/analyze
+;
 ; testing
-;            [Ed. -- apparently I'm multiline OK for all of the testing. But I will not apologize for requiring blank lines in the PEG proper.]
-also prin "" any [unset? :multiline multiline] ; for console pasting, empty line finishes
 ;
 Suite: "Sanity"
 Group: "breadth"
