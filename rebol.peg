@@ -461,7 +461,7 @@ report-vars: [headed top-count container-count item-count path-count lp gp sp bp
     numerics n1 n2 n3 n4 n5 n6 n7 n8 idioms ref-words rw iw def-words lw gw sw bw coheres c1 c2 c3 limiteds l1 l2 l3 l4 l5 l6 nc]
 stats: context append map-each v report-vars [to set-word! v] [0 bind report-vars self ; report-vars is deliberately modified
      x: c: "" ; hold get/set/lit decorations
-    words: [(x: c: "") copy x [any "'" any ":"] ["set-word" copy c [some ":"] | "arrow-word" | "slashes-word" | "normal-word" | "mid-word" | "word-not-slashes"]] ; the (bare) words that start paths are not counted
+    words: [(x: c: "") copy x [any "'" any ":"] [["set-word" | "mid-word"] copy c [any ":"] | "arrow-word" | "slashes-word" | "normal-word" | "word-not-slashes"]] ; the (bare) words that start paths are not counted
    def-word-types: [words (if x/1 = #"'" [++ lw] if x/1 = #":" [++ gw] if all [x = "" c/1 = #":"] [++ sw] if all [x = "" c = ""] [++ bw])]
    ref-word-types: ["refinement" (++ rw) | "issue" (++ iw)]
   idiomatic-types: [def-word-types (++ def-words) | ref-word-types (++ ref-words)]
