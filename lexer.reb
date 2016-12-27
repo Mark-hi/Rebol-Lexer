@@ -3,11 +3,15 @@ multiline ; to handle pasting-in the (rapidly upcoming, natch) REBOL header -- t
 REBOL [
     Title: "Rebol Lexer (PEG)" ; not scanner, because a scanner must provide numerical overflow handling (an implementation concern), and not parser, because that would be redundant, any PEG parses something and hence is a parser
     Description: "Intended to conform with as much as possible of^/Rebol 2, Rebol 3 Alpha, Red, Ren/C, and Pointillistic Ren,^/recognizing and partitioning textual content into (a series of)^/29 possible lexical items (lexemes)."
-    Date: 10-Dec-2016
-    Version: 1.1.1
-    Author: [Mark Ingram]
-    Exports: [rebol? analyze]
-    Usage: [clear output if rebol? read %some-file.reb [analyze output]]
+    Date: 26-Dec-2016
+    Version: 1.1.2
+    Authors: [[Mark Ingram]]
+    Exports: [rebol? analyze html-after]
+    Usage: [clear output if rebol? source: read %some-file.reb [analyze output write %some-file.html html-after source]]
+    History: [
+        10-Dec-2016 1.1.1 [Mark Ingram] {Initial revision.}
+        26-Dec-2016 1.1.2 [Mark Ingram] {Added syntax highlighting.}
+    ]
 ]
 
 ; voluntary textual formatting of this ASCII file (or, equivalently, UTF-8 file with no multiple-byte encodings):
@@ -399,10 +403,10 @@ also prin "" any [unset? :multiline multiline] ; for console pasting, empty line
 ;                           | gorgob                                                                                                                         ; ! [Ed. -- ! means gorgob-implementers delete the ; at their own peril]
                            ]
 
-   path-close:             [copy x any ":" (emit to string! first deco emit 'path-finish emitt to string! x)]
+   path-close:             [copy pc any ":" (emit to string! first deco emit 'path-finish emitt to string! pc)] ; could adjust this to use show, to count paths in their different forms, similar to what happens with words
   unreparsed-mid-or-end:   [[cascade | copy s unreparsed-item (show s)] ["/" path-tail | not "/" path-close]] ; cascade before unreparsed-item (here and in the lexemes rule), otherwise constructs would match none-value then block
- path-tail:                [copy s mid-item (show s) "/" path-tail | unreparsed-mid-or-end | copy s end-item (show s) path-close] ; order matters, mid before end, for reparsing
-path:                      [copy x [any "'" any ":"] not "</" copy s word "/" (type: 'path-word show/only s insert/only deco x emit to string! x emitt 'path-start) path-tail (remove deco)]
+ path-tail:                [paint: [copy s (x: copy c: copy "") mid-item (show s) "/" path-tail | unreparsed-mid-or-end | copy s (x: copy c: copy "") end-item (show s) path-close]] ; order matters, mid before end, for reparsing
+path:                      [copy px [any "'" any ":"] not "</" paint: copy s word "/" (type: 'path-word show/only s insert/only deco px emit to string! px emitt 'path-start) path-tail (remove deco)]
 
 ; --------
 ; CASCADES (whitespace-separated lexeme containers, delimited) - 3 - block eval-block construction
@@ -414,7 +418,7 @@ path:                      [copy x [any "'" any ":"] not "</" copy s word "/" (t
  construction:             ["#[" (emitt 'construct-begin) lexemes "]" (emitt 'construct-end)]
  eval-block:               ["(" (emitt 'eval-block-begin) lexemes ")" (emitt 'eval-block-end)]
  block:                    ["[" (emitt 'block-begin) lexemes "]" (emitt 'block-end)]
-lexemes:                   [any [liner [cascade | path | copy s [item | unreparsed-item] (show s) | ]] opt [nullc to end]]
+lexemes:                   [any [liner [cascade | path | paint: copy s (x: c: copy "") [item | unreparsed-item] (show s) | ]] opt [nullc to end]]
 
 ; whether headed, embedded, or neither, LOAD will succeed on (and DO will try to evaluate) the string (or binary) if and only if it matches 'script
 ; CAVEAT (fix): left-bracket characters are no longer incorrectly not permitted in comments after the REBOL and before the left-bracket that begins the header block
@@ -427,12 +431,13 @@ lexemes:                   [any [liner [cascade | path | copy s [item | unrepars
 script:                    [(h: false) any intro-line any bland [rebol-embed (h: true) headed-contents "]" (emitt 'End.) to end | if (not h) rebol-head (h: true) headed-contents] | if (not h) lexemes]
 
 ; this function's name will be in the external context -- after the day this PEG gets turned into an object
-set 'rebol? func ["Is it rebol?" candidate [string! binary!]][parse candidate script]
+set 'rebol? func ["Is it rebol?" candidate [string! binary!] /local result][paint-chart: none if result: parse candidate script [return paint-chart] result]
 
-; debugging is currently hardwired into the PEG, but is easy to wire off (see below) and it is possible to remove (delete: all lines from here on, all ()-code in rules except 'script and 'brace-string, and all COPYs in all rules)
+; debugging is currently hardwired into the PEG, but is easy to wire off (see below) and it is possible to remove (delete: from here on, all set-words and ()-code in rules except 'script and 'brace-string, and all COPYs in rules)
 type: copy ""                ; holds a display form of the isolated, non-recursive, lexeme type that matched -- sometimes varying depending on the individual matching clause
 deco: copy []                ; holds path decorations, which recurse, so, is a stack
-s: copy x: copy c: copy ""   ; hold match contents where recursion is guaranteed not to occur
+s: copy x: copy c: copy ""   ; hold item match contents where recursion is guaranteed not to occur, but spans alternatives, so must be set (s) or reset (x c) before trying alternate matches
+px: copy pc: copy ""         ; hold path (decoration) match contents, but only where recursion is guaranteed not to occur, and where each use has been recently set from the same rule
 z: copy t: copy ""           ; hold 'zoned-time auxiliary captures, emitted and reset at the item level
 lined: 0                     ; holds how many newlines were encountered, unnecessary but may catch something -- could otherwise be boolean, modifying the newline sanity testing slightly
 
@@ -452,25 +457,88 @@ emit: func [a][prin a append output a] ; noisy debugging
 emitt: func [a][emit join a newline]
   int2hex: func [i [integer!]][back back tail form to-hex i]
  utf8-show: func [b [binary!] /local s][s: copy "#{ " until [either b/1 < 128 [append s int2hex b/1 b: next b][until [append s int2hex b/1 b: next b any [tail? b b/1 < 128 b/1 > 191]]] append s " " tail? b] append s "}"]
-; 'show is affected by every match, via 'type, but 'show itself is only called from 'lexemes, 'path, 'path-tail, and 'unreparsed-mid-or-end
-show: func ["item detailer, uses 'type, space instead of newline with /only" x [string! binary!] /only][emit join "" [type " " to-string x] if type = 'string [emit join " " utf8-show to binary! x] emit either only " " "^/"]
+ paint: paint-chart: none
+; 'show is affected by every match, via 'type (and 'c and 'x), but 'show itself is only called from 'lexemes, 'path, 'path-tail, and 'unreparsed-mid-or-end
+show: func ["item detailer, final space instead of newline with /only" s [string! binary!] /only /local w][
+    w: s if string? type [type: case [
+            parse x [#"'" to end] ['lit-word]
+            parse x [#":" to end] ['get-word]
+            parse c [#":" to end] ['set-word]
+            'else                 ['word]
+        ]
+        w: copy/part skip s length? x (length? s) - (length? x) - length? c paint: skip paint length? x
+    ]
+    if not paint-chart [paint-chart: copy []] if not find paint-chart type [append paint-chart reduce [type copy []]] append paint-chart/:type reduce [index? paint length? w]
+    emit join "" [type " " to-string s] if type = 'string [emit join " " utf8-show to binary! s] emit either only " " "^/"
+]
+;
+; syntax highlighting (example)
+;                                [Ed. -- totally cribbed, and poorly, from Solarized.]
+html-header: {
+    <!DOCTYPE html><html><head><style>
+    .base03 {color: #002b36;} .base02 {color: #073642;} .base01 {color: #586e75;} .base00 {color: #657b83;} .base0 {color: #839496;} .base1 {color: #93a1a1;} .base2 {color: #eee8d5;} .base3 {color: #fdf6e3;}
+    .yellow {color: #b58900;} .orange {color: #cb4b16;} .red {color: #dc322f;} .magenta {color: #d33682;} .violet {color: #6c71c4;} .blue {color: #268bd2;} .cyan {color: #2aa198;} .green {color: #859900;}
+    </style></head><body><pre>
+}
+html-trailer: {
+    </pre></body></html>
+}
+paint-scheme: [
+    bare-file-nocolon    violet    bare-file-unslashed  violet    bare-file            violet
+    dot-url-nocolon      violet    word-url-nocolon     violet    dot-url              violet    word-url-unslashed   violet    url                  violet
+    email-nocolon        violet    email                violet
+    path-date            magenta   date                 magenta
+    time                 magenta
+    money                red       percent              red       tuple                red       pair                 red       decimal              red       integer              red
+    issue                yellow    refinement           yellow
+    none-value           cyan
+    quote-file           base2
+    char                 red
+    string               base01
+    binary               base00
+    tag                  base0
+    comment              green
+    lit-word             yellow
+    get-word             blue      set-word             blue
+    word                 base03
+]
+set 'html-after func ["Return html-converted and syntax-highlit copy."
+    s [string! binary!]
+    /local sorted
+][
+    s: copy s sorted: copy []
+    foreach [lexeme occurs] paint-chart [foreach [s f] occurs [append sorted reduce [s f lexeme]]]
+    sort/reverse/skip sorted 3 s: tail s
+    while [all [not head? s not tail? sorted]] [
+        if sorted/1 + sorted/2 = index? s [insert s "</span>"]
+        s: back s case [
+            parse s [#"<" to end] [change/part s "&lt;" 1]
+            parse s [#">" to end] [change/part s "&gt;" 1]
+            parse s [#"&" to end] [change/part s "&amp;" 1]
+        ]
+        if sorted/1 = index? s [
+            insert s join "<span class=" [paint-scheme/(sorted/3) ">"]
+            sorted: skip sorted 3
+        ]
+    ]
+    head insert append s html-trailer html-header
+]
 ;
 ; analysis
 ;            Report lexical item counts -- determined via parsing the debugging output.
 report-vars: [headed top-count container-count item-count path-count lp gp sp bp block-count eval-block-count construct-count ; sadly, something has to poison the outer context, otherwise it forces bind and/or duplication hell
     numerics n1 n2 n3 n4 n5 n6 n7 n8 idioms ref-words rw iw def-words lw gw sw bw coheres c1 c2 c3 limiteds l1 l2 l3 l4 l5 l6 nc]
 stats: context append map-each v report-vars [to set-word! v] [0 bind report-vars self ; report-vars is deliberately modified
-     x: c: "" ; hold get/set/lit decorations
-    words: [(x: c: "") copy x [any "'" any ":"] [["set-word" | "mid-word"] copy c [any ":"] | "arrow-word" | "slashes-word" | "normal-word" | "word-not-slashes"]] ; the (bare) words that start paths are not counted
-   def-word-types: [words (if x/1 = #"'" [++ lw] if x/1 = #":" [++ gw] if all [x = "" c/1 = #":"] [++ sw] if all [x = "" c = ""] [++ bw])]
+   def-word-types: ["lit-word" (++ lw) | "get-word" (++ gw) | "set-word" (++ sw) | "word" (++ bw)] ; the (bare) words that start paths are not counted here, but they could be
    ref-word-types: ["refinement" (++ rw) | "issue" (++ iw)]
   idiomatic-types: [def-word-types (++ def-words) | ref-word-types (++ ref-words)]
   numeric-types: ["tuple" (++ n1) | opt "path-" "date" (++ n2) | "time" (++ n3) | "pair" (++ n4) | "percent" (++ n5) | "money" (++ n6) | "decimal" (++ n7) | "integer" (++ n8)]
   cohesive-types: [["bare-file-unslashed" | "bare-file-nocolon" | "bare-file"] (++ c1) | ["email-nocolon" | "email"] (++ c2) | ["dot-url-nocolon" | "word-url-nocolon" | "dot-url" | "word-url-unslashed" | "url"] (++ c3)]
   limitive-types: ["comment" (++ l1) | "binary" (++ l2) | "tag" (++ l3) | "char" (++ l4) | "string" (++ l5) | "quote-file" (++ l6)]
  isolate-types: [numeric-types (++ numerics) | idiomatic-types (++ idioms) | cohesive-types (++ coheres) | limitive-types (++ limiteds) | "none-value" (++ nc)]
+    x: c: "" ; for (path) get/set/lit decorations
    path-detail: [path-count: path-count + 1 if x/1 = #"'" [++ lp] if x/1 = #":" [++ gp] if all [x = "" c/1 = #":"] [++ sp] if all [x = "" c = ""][++ bp]]
-  path-types: ["path-word" thru "path-start" newline some [all-types thru newline] (x: c: "") copy x [any "'" any ":"] "path-finish" copy c [any ":"] (do path-detail)]
+  path-types: ["path-word" thru "path-start" newline some [all-types thru newline] (x: copy c: "") copy x [any "'" any ":"] "path-finish" copy c [any ":"] (do path-detail)]
    line-trail: [thru newline any ["Next item lined" thru newline]]
   block-types: ["block-begin" line-trail any [all-types line-trail] "block-end" (++ block-count)]
   eval-block-types: ["eval-block-begin" line-trail any [all-types line-trail] "eval-block-end" (++ eval-block-count)]
@@ -494,7 +562,7 @@ analyze: func ["Report lexical statistics."
     output [string!] "Must be the output of a clean and successful REBOL? invocation."
 ][
     set report-vars 0
-    parse output ["Embedded." line-trail lex "Contents." line-trail lex "End." to end (headed: 1) | "Headed." line-trail lex "Contents." line-trail lex (headed: 2) | lex]
+    if not parse output ["Embedded." line-trail lex "Contents." line-trail lex "End." to end (headed: 1) | "Headed." line-trail lex "Contents." line-trail lex (headed: 2) | lex] [return "Failed!"]
     print report
 ]
 ] ; end stats context
