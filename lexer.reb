@@ -472,35 +472,36 @@ show: func ["item detailer, final space instead of newline with /only" s [string
     emit join "" [type " " to-string s] if type = 'string [emit join " " utf8-show to binary! s] emit either only " " "^/"
 ]
 ;
-; syntax highlighting (example)
-;                                [Ed. -- totally cribbed, and poorly, from Solarized.]
+; syntax highlighting
+;                      [Ed. -- a very unsophisticated example.]
 html-header: {
     <!DOCTYPE html><html><head><style>
-    .base03 {color: #002b36;} .base02 {color: #073642;} .base01 {color: #586e75;} .base00 {color: #657b83;} .base0 {color: #839496;} .base1 {color: #93a1a1;} .base2 {color: #eee8d5;} .base3 {color: #fdf6e3;}
-    .yellow {color: #b58900;} .orange {color: #cb4b16;} .red {color: #dc322f;} .magenta {color: #d33682;} .violet {color: #6c71c4;} .blue {color: #268bd2;} .cyan {color: #2aa198;} .green {color: #859900;}
+    .black {color: #000000;} .gray6 {color: #222222;} .gray5 {color: #444444;} .gray4 {color: #666666;} .gray3 {color: #888888;} .gray2 {color: #aaaaaa;} .gray1 {color: #ccccccc;} .white {color: #eeeeee;}
+    .yellow {color: #ffff00;} .brown {color: #666600;} .red {color: #ff0000;} .magenta {color: #ff00ff;} .violet {color: #aa00aa;} .blue {color: #0000ff;} .cyan {color: #004488;} .green {color: #00aa00;}
     </style></head><body><pre>
 }
 html-trailer: {
     </pre></body></html>
 }
-paint-scheme: [
-    bare-file-nocolon    violet    bare-file-unslashed  violet    bare-file            violet
-    dot-url-nocolon      violet    word-url-nocolon     violet    dot-url              violet    word-url-unslashed   violet    url                  violet
-    email-nocolon        violet    email                violet
-    path-date            magenta   date                 magenta
-    time                 magenta
+paint-scheme: [%"a file" %file/2 an@email a:url 10/10/10 10-10-10 7 #an-issue /a-refinement # "a string" {another string} #{00000000} <a tag> 'a-lit-word :a-get-word a-set-word: a-word ;comment - nothing green or yellow please
+    bare-file-nocolon    brown     bare-file-unslashed  brown     bare-file            brown
+    dot-url-nocolon      brown     word-url-nocolon     brown     dot-url              brown     word-url-unslashed   brown     url                  brown
+    email-nocolon        brown     email                brown
+    path-date            red       date                 red
+    time                 red
     money                red       percent              red       tuple                red       pair                 red       decimal              red       integer              red
-    issue                yellow    refinement           yellow
-    none-value           cyan
-    quote-file           base2
+    issue                gray5     refinement           gray5
+    none-value           magenta
+    quote-file           brown
     char                 red
-    string               base01
-    binary               base00
-    tag                  base0
-    comment              green
-    lit-word             yellow
-    get-word             blue      set-word             blue
-    word                 base03
+    string               brown
+    binary               violet
+    tag                  violet
+    comment              cyan
+    lit-word             gray5
+    get-word             black
+    set-word             blue
+    word                 black
 ]
 set 'html-after func ["Return html-converted and syntax-highlit copy."
     s [string! binary!]
