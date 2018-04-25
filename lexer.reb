@@ -15,8 +15,8 @@ REBOL [
 ]
 
 ; voluntary textual formatting of this ASCII file (or, equivalently, UTF-8 file with no multiple-byte encodings):
-; a semi-colon always either starts or is inside a comment -- literal semi-colons in this file use the caret-value escaping form "^(3B)"
-; a caret, used only in literals or comments, always represents the beginning of an escape sequence -- literal carets in this file use the caret-value escaping form "^(5E)" instead of the caret-char escaping form (two carets)
+; a semi-colon always either starts or is inside a comment -- every literal semi-colon in this file is represented by an escape sequence value form "^(3B)"
+; a caret, used only in literals or comments, always indicates the beginning of an escape sequence -- every literal caret in this file is represented by an escape sequence value form "^(5E)", never the character form (two carets)
 
 ; synopsis of major syntactical fixes:
 ; --------------------------------------------------------------------------------------------------------------------
