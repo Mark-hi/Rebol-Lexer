@@ -1,5 +1,5 @@
 multiline: has [r l] [r: l: "" until [r: join r [l "^/"] empty? l: input] do r] ; for when the contents of this file are pasted into an R3 console instead of being executed via DO
-multiline ; to handle pasting the (upcoming) REBOL header -- note: this line and the line above are ignored when given to DO (since they will both match the intro-line rule below)
+multiline ; to handle pasting the (upcoming) REBOL header -- this line and the line above are introductory lines and are ignored when given to DO, see the "intro-line:" rule below
 REBOL [
     Title: "Rebol Lexer (PEG)" ; not scanner, because a scanner must provide numerical overflow handling (an implementation concern), and not parser, because that would be redundant, any PEG parses something and hence is a parser
     Description: "Intended to conform with as much as possible of^/Rebol 2, Rebol 3 Alpha, Red, Ren/C, and Pointillistic Ren,^/recognizing and partitioning textual content into (a series of)^/29 possible lexical items (lexemes)."
