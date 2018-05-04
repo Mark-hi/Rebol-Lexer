@@ -21,7 +21,7 @@ REBOL [
 ; synopsis of major syntactical fixes:
 ; --------------------------------------------------------------------------------------------------------------------
 ; lit-word! get-word!                       permit only what would be permitted if bare, i.e., without ' : decorations
-; arrow-words and slashes-words             permit more arrow words, and permit set-word, get-word, and lit-word forms
+; arrow-words and slashes-words             permit more arrow-words, and permit set-word, get-word, and lit-word forms
 ; url!                                      can begin with < or > if any arrows and :/ follows, or a slashes-word if :
 ; tag!                                      cedes to bare-word, set-word, or url, except </ (closing-tag special case)
 ; issue! refinement!                        permit only regular-word trails and commas; tags separate, but not slashes
@@ -65,10 +65,10 @@ utf83: ["^(E0)" ua0bf utail | ue1ec utail utail | "^(ED)" u809f utail | ueeef ut
 ptf83: ["%" ["E" | "e"] "0" pa0bf ptail | pe1ec ptail ptail | "%" ["E" | "e"] ["D" | "d"] p809f ptail | peeef ptail ptail]
 utf82: [uc2df utail]
 ptf82: [pc2df ptail]
-utf8*: [utf82 | utf83 | utf84]                                          ; all 1,111,936 non-ASCII non-surrogate Unicode codepoints, UTF-8-encoded -- all the multiple-code-unit sequences that can be present in binaries
-putf8: ["%" octal hexan | ptf82 | ptf83 | ptf84]                        ; all 1,112,064 non-surrogate Unicode codepoints, including all of ASCII, as sequences of percent-encoded UTF-8 code-units -- as yet unused
+utf8*: [utf82 | utf83 | utf84]                                          ; all 1,111,936 non-ASCII non-surrogate Unicode codepoints, UTF-8-encoded -- all the multiple-code-unit sequences that are interpreted in binary source files
+putf8: ["%" octal hexan | ptf82 | ptf83 | ptf84]                        ; all 1,112,064 non-surrogate Unicode codepoints, including all of ASCII, as sequences of percent-encoded UTF-8 code-units [Ed. -- not yet used in any rules]
 hexal: charset "89ABCDEFabcdef"                                         ; if this is the first of two hexadecimal digits encoding a byte, then that byte has its most significant bit set
-legac: charset [#"^(80)" - #"^(D7FF)" #"^(E000)" - #"^(FFFF)"]          ; the 63361 non-ASCII non-surrogate Unicode codepoints supported by R3 -- for parsing strings by character, not to be used on binaries
+legac: charset [#"^(80)" - #"^(D7FF)" #"^(E000)" - #"^(FFFF)"]          ; the 63361 non-ASCII non-surrogate Unicode codepoints supported by R3 -- for parsing R3 string sources by character, never to be used on binary source files
 upper: [marki: if (string? marki) legac | if (binary? marki) utf8*]     ; this rule can (obviously) be made simpler by making the target restricted in type -- but this PEG prioritizes inclusiveness and flexibility over efficiency
 
 ; characters charsets -- though the syntax-controlling characters are all ASCII, all UTF-8 (and in comments, any content) is permitted -- but a null codepoint (Unicode U+000000) always means end-of-file no matter where it appears
@@ -155,7 +155,7 @@ hex-4:                                      [0 4 hexan]                         
 hex4n:                                      [not [["D" | "d"] hexal 2 hexan] hex-4]            ; legacy -- BMP non-surrogates -- as yet unused
 hex-6:                                      ["10" 4 hexan | opt "0" 0 5 hexan]                 ; all 1,114,112 Unicode codepoints, including surrogates, in hex
 hex6n:                                      [not [[0 2 "0" ["D" | "d"]] hexal 2 hexan] hex-6]  ; all 1,112,064 non-surrogate Unicode codepoints in hex -- as yet unused
-perch:                                      ["%" hexan hexan]                                  ; legacy -- all 256 bytes, only half of which are UTF8, percent-encoded -- 'putf8 is proper percent-encoded Unicode
+perch:                                      ["%" hexan hexan]                                  ; all 256 bytes, only half of which are UTF8, percent-encoded -- when this legacy mode is removed, 'putf8 will replace this everywhere
 ghigh-delim+perch:                          [ghigh-delim-percy | perch]
 ghigh-delim-colon+perch:                    [ghigh-delim-colon-percy | perch]
 ghigh-delim-whorl+perch:                    [ghigh-delim-whorl-percy | perch]
@@ -184,8 +184,8 @@ qchar-lbrac-rbrac:                          [blank | hat-char | ghigh-caret-lbra
 ; CAVEAT (fix): the fact that if it comes before any slashes, ^@ appearing in a bare file makes it an email, no longer incorrectly pertains, because ^@ is no longer permitted (though @ will still do that, %40 avoids)
 ; CAVEAT (fix): ^- (^I), ^! (1E), ^\ (1C), and ^_ (1F), no longer incorrectly work in bare files, and so also the resultant file is no longer incorrectly truncated at the first one of them
 fchar-colon-semic-ditto+perch:              [" " | hat-char | ghigh-caret-colon-semic-ditto-percy | perch] ; used only in quoted files -- all controls (including newlines) must be escaped, using either a caret or percent-encoding
- filch-coloned:                             [caret ":"]                        ; since colons must be escaped, this is the only way a bare file can look like it ends with a colon (and thus be barred from being path-final)
- filch-uncoloned:                           [caret caret]                      ; the caret-char escape sequence that the previous one causes to be required in bare files
+ filch-coloned:                             [caret ":"]                        ; since colons must be escaped, this is the only way a bare file can end with a colon (and hence will not be interpreted as such at the end of a path)
+ filch-uncoloned:                           [caret caret]                      ; the caret-char sequence that the legacy-only escaped colon (which the filch-coloned rule exists only to provide) causes to be required in bare files
 filch:                                      [filch-coloned | filch-uncoloned]  ; the minimal set of caret-char escapes that bare files must come with, if colons must have caret-char escaping
 
 ; dates rules
@@ -386,7 +386,7 @@ also prin "" any [unset? :multiline multiline] ; for console pasting, empty line
                            | comment-rule                                                             (type: 'comment)                                      ;
                            ]
 ;
-; cascades (the block-likes) and unreparsed items have the same form wherever they are used, whether inside a cascade or in an echelonic
+; cascades (the block-likes) and unreparsed items (the delimited lexemes that are interpreted, that is, that are not comments) have the same form everywhere, either inside a cascade or as a (non-leading) component of an echelonic
 ;
   unreparsed-item:         [ quote-file                                                               (type: 'quote-file)                                   ; :
                            | char                                                                     (type: 'char)                                         ; :
