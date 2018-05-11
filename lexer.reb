@@ -67,16 +67,16 @@ utf82: [uc2df utail]
 ptf82: [pc2df ptail]
 utf8*: [utf82 | utf83 | utf84]                                          ; all 1,111,936 non-ASCII non-surrogate Unicode codepoints, UTF-8-encoded -- all the multiple-code-unit sequences that are interpreted in binary source files
 putf8: ["%" octal hexan | ptf82 | ptf83 | ptf84]                        ; all 1,112,064 non-surrogate Unicode codepoints, including all of ASCII, as sequences of percent-encoded UTF-8 code-units [Ed. -- not yet used in any rules]
-hexal: charset "89ABCDEFabcdef"                                         ; if this is the first of two hexadecimal digits encoding a byte, then that byte has its most significant bit set
+hexal: charset "89ABCDEFabcdef"                                         ; used in non-ASCII UTF-8 percent-encoding -- if this is the first of two hexadecimal digits encoding a byte, then that byte has its most significant bit set
 legac: charset [#"^(80)" - #"^(D7FF)" #"^(E000)" - #"^(FFFF)"]          ; the 63361 non-ASCII non-surrogate Unicode codepoints supported by R3 -- for parsing R3 string sources by character, never to be used on binary source files
 upper: [marki: if (string? marki) legac | if (binary? marki) utf8*]     ; this rule can (obviously) be made simpler by making the target restricted in type -- but this PEG prioritizes inclusiveness and flexibility over efficiency
 
 ; characters charsets -- though the syntax-controlling characters are all ASCII, all UTF-8 (and in comments, any content) is permitted -- but a null codepoint (Unicode U+000000) always means end-of-file no matter where it appears
-alpha: charset "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"   ;  52 ; majuscule and minuscule are not usually distinguished
+alpha: charset "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"   ;  52 ; majuscule and minuscule are not differentiated syntactically in caret escapes, exponential notation, month names, or hexadecimal binary lexical forms
 digit: charset "0123456789"                                             ;  10 ; the only digits
-runic: charset "!?*=&|~`_^(5E)"                                         ;  10 ; non-alphanumerics that act like letters when used anywhere in words -- includes the caret
-specl: charset "@#$%'+-.,:<>\"                                          ;  13 ; some only play a part in lexeme determination (or failure), others have dual roles, others are "special case" word characters
-delim: charset {[](){}"/^(3B)}                                          ;   9 ; delimiters, including the semi-colon -- all can terminate the current lexeme, some can also begin another lexeme at the same time
+runic: charset "!?*=&|~`_^(5E)"                                         ;  10 ; non-alphanumerics that act like letters when used anywhere in words -- note that this includes the caret, ruling out its usage in escaping word forms
+specl: charset "@#$%'+-.,:<>\"                                          ;  13 ; lexeme determiners that cannot ("@#$%:,") or, in specific circumstances, can ("'+-.<>"), be in words, and backslash, an input form of slash for files
+delim: charset {[](){}"/^(3B)}                                          ;   9 ; delimiters, including the semi-colon -- all can terminate the current lexeme, and some ("[({", double-quote, and semi-colon) also begin their new one
 graph: union union union union alpha digit runic specl delim            ;  94 ; graphical characters -- the ASCII visible glyphs
 cntrl: charset [0 - 31 127]                                             ;  33 ; control characters, including the end of line characters LF and CR
 ascii: union union graph cntrl charset " "                              ; 128 ; every 7-bit character -- monobyte means entire single, and thus, holobyte utf8 [Ed. -- better than unibyte, but both are better than "not multibyte"]
@@ -93,7 +93,7 @@ wordn: union union union alpha digit nunic narks                        ; the ch
 
 ; binaries charsets
 bin-2: charset "01"                                                     ; only these two characters are permitted inside binary bitsets (in addition to whitespace)
-bin64: union union alpha digit charset "+/"                             ; one place where letter case is significant
+bin64: union union alpha digit charset "+/"                             ; the permitted non-blank characters before the finalising 0 through 2 equals signs in base-64 binary lexemes, one of the few places that case is significant
 
 ; strings charsets
 caret: charset "^(5E)"                                                  ; the caret introduces a character escape in strings, quoted files (fewer available), and bare files (very few available)
