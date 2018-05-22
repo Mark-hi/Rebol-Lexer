@@ -85,7 +85,7 @@ ascii: union union graph cntrl charset " "                              ; 128 ; 
 arrow: charset "<-+|=~>"                                                ; the characters permitted in arrow-words
 angle: charset "<>"                                                     ; the characters permitted in arrow-words but forbidden in regular-words -- not actually used in a rule yet, it is just to define what "angle" characters are
 nangl: charset "-+|=~"                                                  ; the characters permitted in both arrow-words and regular-words [difference arrow angle]
-nunic: charset "_!?*&`^(5E)"                                            ; the non-alpha word-starting characters forbidden in arrow-words [difference runic charset "|=~"]
+nunic: charset "_!?*&`^(5E)"                                            ; the non-alphabetic characters that can start words but are forbidden in arrow-words [difference runic charset "|=~"]
 marks: charset "+-.'"                                                   ; the characters permitted in (some) numerics and (at some places) in regular words
 narks: charset ".'"                                                     ; the characters permitted in (some) numerics and (at some places) in regular-words but forbidden in arrow-words [difference marks charset "-+"]
 wordw: union union union alpha digit runic marks                        ; the characters permitted in regular-words, including the five 'nangl characters permitted in arrow-words -- ASCII, but only used where 'upper also accepted
