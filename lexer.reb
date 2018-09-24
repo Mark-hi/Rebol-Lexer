@@ -11,6 +11,7 @@ REBOL [
     History: [
         10-Dec-2016 1.1.1 [Mark Ingram] {Initial revision.}
         26-Dec-2016 1.1.2 [Mark Ingram] {Added syntax highlighting.}
+        24-Nov-2018 1.1.3 [Mark Ingram] {Improved documentation, debugging, and testing.}
     ]
 ]
 
@@ -85,9 +86,9 @@ ascii: union union graph cntrl charset " "                              ; 128 ; 
 arrow: charset "<-+|=~>"                                                ; the characters permitted in arrow-words
 angle: charset "<>"                                                     ; the characters permitted in arrow-words but forbidden in regular-words -- not actually used in a rule yet, it is just to define what "angle" characters are
 nangl: charset "-+|=~"                                                  ; the characters permitted in both arrow-words and regular-words [difference arrow angle]
-nunic: charset "_!?*&`^(5E)"                                            ; the non-alphabetic characters that can start words but are forbidden in arrow-words [difference runic charset "|=~"]
+nunic: charset "_!?*&`^(5E)"                                            ; the non-alphabetic characters that are able to start words but are forbidden everywhere in arrow-words [difference runic charset "|=~"]
 marks: charset "+-.'"                                                   ; the characters permitted in (some) numerics and (at some places) in regular words
-narks: charset ".'"                                                     ; the characters permitted in (some) numerics and (at some places) in regular-words but forbidden in arrow-words [difference marks charset "-+"]
+narks: charset ".'"                                                     ; the characters permitted in (some) numerics and (at some places) in regular-words but forbidden everywhere in arrow-words [difference marks charset "-+"]
 wordw: union union union alpha digit runic marks                        ; the characters permitted in regular-words, including the five 'nangl characters permitted in arrow-words -- ASCII, but only used where 'upper also accepted
 wordn: union union union alpha digit nunic narks                        ; the characters permitted in regular-words but forbidden in arrow-words [difference wordw nangl] -- ASCII, but only used where 'upper also accepted
 
@@ -405,7 +406,7 @@ also prin "" any [unset? :multiline multiline] ; for console pasting, empty line
 
    path-close:             [copy pc any ":" (emit to string! first deco emit 'path-finish emitt to string! pc)] ; could adjust this to use show, to count paths in their different forms, similar to what happens with words
   unreparsed-mid-or-end:   [[cascade | copy s unreparsed-item (show s)] ["/" path-tail | not "/" path-close]] ; cascade before unreparsed-item (here and in the lexemes rule), otherwise constructs would match none-value then block
- path-tail:                [paint: [copy s (x: copy c: copy "") mid-item (show s) "/" path-tail | unreparsed-mid-or-end | copy s (x: copy c: copy "") end-item (show s) path-close]] ; order matters, mid before end, for reparsing
+ path-tail:                [paint: [copy s (x: copy c: copy "") mid-item (show s) "/" path-tail | unreparsed-mid-or-end | copy s (x: copy c: copy "") end-item (show s) path-close]] ; order matters - mid before end - for reparsing
 path:                      [copy px [any "'" any ":"] not "</" paint: copy s word "/" (type: 'path-word show/only s insert/only deco px emit to string! px emitt 'path-start) path-tail (remove deco)]
 
 ; --------
@@ -469,7 +470,7 @@ show: func ["item detailer, final space instead of newline with /only" s [string
         w: copy/part skip s length? x (length? s) - (length? x) - length? c paint: skip paint length? x
     ]
     if not paint-chart [paint-chart: copy []] if not find paint-chart type [append paint-chart reduce [type copy []]] append paint-chart/:type reduce [index? paint length? w]
-    emit join "" [type " " to-string s] if type = 'string [emit join " " utf8-show to binary! s] emit either only " " "^/"
+    emit join "" [type " " to-string s] if type = 'string [emit join " " utf8-show to binary! s] emit either only [" "] ["^/"]
 ]
 ;
 ; syntax highlighting
@@ -574,9 +575,9 @@ set 'analyze :stats/analyze
 Suite: "Sanity"
 Group: "breadth"
 test-one: func [x [block!]] [print ["... Test" join x/1 ":"] true = try [all x]]
-test-all: func [x [block!] /local r f] [r: true foreach t x [if not r: r and test-one t [f: t break]] print ["---^/" Suite Group "tests" join either r "passed with flying colours" [join "failed on test " f/1] ".^/--"]]
+test-all: func [x [block!] /local r f] [r: true foreach t x [if not r: r and test-one t [f: t break]] print ["---^/" Suite Group "tests" join either r ["passed with flying colours"] [join "failed on test " mold f/1] ".^/--"]]
 clear output
-test-all breadth: [
+test-all breadth-tests: [
   [#1 false = parse "</>" path parse "</>" script parse "<</>" script parse "<>/>" script parse "a a: :a 'a #a /a" script]
   [#2 parse "-0" integer parse "-0.0" decimal parse "-0x0" pair parse "-0.0%" percent parse "-0:0" time]
   [#3 parse "" script parse "^/" script parse "^M" script parse "[]" script parse "[^/]" script parse "^/[]" script parse "[]^/" script parse "^/[]^/" script parse "^/[^/]^/" script]
@@ -606,7 +607,7 @@ until [
     newline-tests: skip newline-tests 3
     any [not result tail? newline-tests]
 ]
-print ["--^/" Suite Group "tests" either result ["passed with flying colours."] join {failed on the "} [first skip newline-tests -3 {" test.}] "^/--"]
+print ["--^/" Suite Group "tests" either result ["passed with flying colours."] [join {failed the "} [first skip newline-tests -3 {" test.}]] "^/--"]
 ;
 Group: "date zone"
 date-zone-tests: reduce [
@@ -627,7 +628,7 @@ until [
     date-zone-tests: skip date-zone-tests 3
     any [not result tail? date-zone-tests]
 ]
-print ["--^/" Suite Group "tests" either result ["passed with flying colours."] join {failed on the "} [first skip date-zone-tests -3 {" test.}] "^/--"]
+print ["--^/" Suite Group "tests" either result ["passed with flying colours."] [join {failed the "} [first skip date-zone-tests -3 {" test.}]] "^/--"]
 ;
 Group: "headers and embedding"
 head-tests: compose/deep [ ; results blocks contain two things: what will [parse X script] return and what type will [try [load X]] be
@@ -654,7 +655,7 @@ until [
     head-tests: skip head-tests 2
     any [not result/1 not result/2 tail? head-tests]
 ]
-print ["--^/" Suite Group "tests" either result/1 and result/2 ["passed with flying colours."] join {failed on the "} [first skip head-tests -2 {" test.}] "^/--"]
+print ["--^/" Suite Group "tests" either result/1 and result/2 ["passed with flying colours."] [join {failed the "} [first skip head-tests -2 {" test.}]] "^/--"]
 ;
 ; UTF8 test groups, two of them, pass and fail, totally cribbed from Markus Kuhn's utf8 test file
 ;
@@ -714,7 +715,7 @@ until [
     utf8-yes-tests: skip utf8-yes-tests 2
     any [not result tail? utf8-yes-tests]
 ]
-print ["--^/" Suite Group "tests" either result ["passed with flying colours."] join {failed on the "} [first skip utf8-yes-tests -2 {" test.}] "^/--"]
+print ["--^/" Suite Group "tests" either result ["passed with flying colours."] [join {failed the "} [first skip utf8-yes-tests -2 {" test.}]] "^/--"]
 ;
 Group: "bad-utf8"
 utf8-no-tests: [
@@ -737,38 +738,40 @@ until [
     utf8-no-tests: skip utf8-no-tests 2
     any [not result tail? utf8-no-tests]
 ]
-print ["--^/" Suite Group "tests" either result ["passed with flying colours."] join {failed on the "} [first skip utf8-no-tests -2 {" test.}] "^/--"]
+print ["--^/" Suite Group "tests" either result ["passed with flying colours."] [join {failed the "} [first skip utf8-no-tests -2 {" test.}]] "^/--"]
 ;
-Group: "syntax extension points"
-extents: { solo sentinel-word sentinel-number flagged-block flagged-eval-block flagged-brace-string flagged-ditto-string flagged-arrow-tag flagged-word-tag flagged-word flagged-digit 10 flagged-special
-T F     F  T    T    T     T    T    T    T     T  T  T  T  T  T  T  T  T  T  T
-@ word@ 0@ @[-] @(-) @{AA} @"-" @<-> @<x> @word @0 @' @+ @- @. @, @: @< @> @\ @/
-F T     T  F    T    F     F    T    F    F     F  F  F  F  F  F  T  T  T  T  T
-# word# 0# #[-] #(-) #{AA} #"-" #<-> #<x> #word #0 #' #+ #- #. #, #: #< #> #\ #/
-T T     T  T    T    T     T    T    T    T     F  T  F0 F0 F0 F0 T  T  T  T  T
-$ word$ 0$ $[-] $(-) ${AA} $"-" $<-> $<x> $word $0 $' $+ $- $. $, $: $< $> $\ $/
-F T     F  F    F    F     F    F    F    F     F  F  F  F  F  F  T  F  F  F  F
-% word% 0% %[-] %(-) %{AA} %"-" %<-> %<x> %word %0 %' %+ %- %. %, %: %< %> %\ %/
-T F     F  T    T    T     T    F    T    F     T  X  F  F  F  T  T  F  F  T  F
-' word' 0' '[-] '(-) '{AA} '"-" '<-> '<x> 'word '0 '' '+ '- '. ', ': '< '> '\ '/
-F F     T  F    F    F     F    F    T    F     F  F  F  F  F  T  F  F  F  T  Fa
-+ word+ 0+ +[-] +(-) +{AA} +"-" +<-> +<x> +word +0 +' ++ +- +. +, +: +< +> +\ +/
-F F     F1-1 F  F    F     F    F    T    F     F  F  F  F  F  T  F  F  F  T  Fa
-- word- 1- -[-] -(-) -{AA} -"-" -<-> -<x> -word -0 -' -+ -- -. -, -: -< -> -\ -/
-F F     F  F    F    F     F    T    F    F     F  F  F  F  F  T  F  T  T  T  Fa
-. word. 0. .[-] .(-) .{AA} ."-" .<-> .<x> .word .0 .' .+ .- .. ., .: .< .> .\ ./
-T T     F  T    T    T     T    T    T    T     F  T  T  T  T  T  T  T  T  T  T
-, word, 0, ,[-] ,(-) ,{AA} ,"-" ,<-> ,<x> ,word ,0 ,' ,+ ,- ,. ,, ,: ,< ,> ,\ ,/
-T F     F0 T    T    T     T    F    T    F     F  T  F  F  F  F0 T  F  F  T  F
-: word: 0: :[-] :(-) :{AA} :"-" :<-> :<x> :word :0 :' :+ :- :. :, :: :< :> :\ :/
-F T     T  F    F    F     F    F    F    F>    F> F> F> F> F> F> F  F  F  F> F>
-< awrd< 0< <[-] <(-) <{AA} <"-" <<-> <<x> <word <0 <' <+ <- <. <, <: << <> <\ </
-F T     T  F    F    F     F    F    T    T     T  T  F  F  T  T  F  F  F  T  Fa
-> awrd> 0> >[-] >(-) >{AA} >"-" ><-> ><x> >awrd >0 >' >+ >- >. >, >: <> >> >\ >/
-T T     T  T    T    T     T    T    T    T     T  T  T  T  T  T  T  T  T  T  T
-\ word\ 0\ \[-] \(-) \{AA} \"-" \<-> \<x> \word \0 \' \+ \- \. \, \: \< \> \\ \/
-F Fa    F1/1 F  F    F     F    T    F    F     F  F  F  F  F  F  F  T  T  T  F
-/ word/ 1/ /[-] /(-) /{AA} /"-" /<-> /<x> /word /0 /' /+ /- /. /, /: /< /> /\ //
+; the following does not consider doubling, or tripling, and so on, or mixing amongst, the 4 blobs @#$% - it would be "too Perly" - and similarly the last 10 columns of this table are really for documentation only
+; also not mentioned is the obvious path/ref-word extension, doubling (or tripling etc.) their slashes - which would equally obviously not be able to be varied within a single path for readability reasons
+Group: "syntax extension points" ; narr - not an arrow word ; sentinel comes after, flag comes before ; T - available ; F - unavailable, i.e., already can be valid (if necessary, after appending what follows the F)
+extents: { solo sentinel-word sentinel-number flagged-block flagged-eval-block flagged-brace-string flagged-ditto-string flagged-arrow-word flagged-tag flagged-word flagged-digit flagged-nonalnum-there-are-10
+           T    F             F               T             T                  T                    T                    T                  T           T            T             T  T  T  T  T  T  T  T  T  T
+           @    word@         0@              @[-]          @(-)               @{AA}                @"-"                 @<->               @<x>        @word        @0            @' @+ @- @. @, @: @< @> @\ @/
+           F    T             T               F             T                  F                    F                    T                  F           F            F             F  F  F  F  F  T  T  T  T  T
+           #    word#         0#              #[-]          #(-)               #{AA}                #"-"                 #<->               #<x>        #word        #0            #' #+ #- #. #, #: #< #> #\ #/
+           T    T             T               T             T                  T                    T                    T                  T           T            F             T  F0 F0 F0 F0 T  T  T  T  T
+           $    word$         0$              $[-]          $(-)               ${AA}                $"-"                 $<->               $<x>        $word        $0            $' $+ $- $. $, $: $< $> $\ $/
+           F    T             F               F             F                  F                    F                    F                  F           F            F             F  F  F  F  F  T  F  F  F  F
+           %    word%         0%              %[-]          %(-)               %{AA}                %"-"                 %<->               %<x>        %word        %0            %' %+ %- %. %, %: %< %> %\ %/
+           T    F             F               T             T                  T                    T                    F                  T           F            T             T  F  F  F  T  T  F  F  T  F
+           '    word'         0'              '[-]          '(-)               '{AA}                '"-"                 '<->               '<x>        'word        '0            '' '+ '- '. ', ': '< '> '\ '/
+           F    F             T               F             F                  F                    F                    F                  T           F            F             F  F  F  F  T  F  F  F  T  Fa
+           +    word+         0+              +[-]          +(-)               +{AA}                +"-"                 +<->               +<x>        +word        +0            +' ++ +- +. +, +: +< +> +\ +/
+           F    F             F1-1            F             F                  F                    F                    F                  T           F            F             F  F  F  F  T  F  F  F  T  Fa
+           -    word-         1-              -[-]          -(-)               -{AA}                -"-"                 -<->               -<x>        -word        -0            -' -+ -- -. -, -: -< -> -\ -/
+           F    F             F               F             F                  F                    F                    T                  F           F            F             F  F  F  F  T  F  T  T  T  Fa
+           .    word.         0.              .[-]          .(-)               .{AA}                ."-"                 .<->               .<x>        .word        .0            .' .+ .- .. ., .: .< .> .\ ./
+           T    T             F               T             T                  T                    T                    T                  T           T            F             T  T  T  T  T  T  T  T  T  T
+           ,    word,         0,              ,[-]          ,(-)               ,{AA}                ,"-"                 ,<->               ,<x>        ,word        ,0            ,' ,+ ,- ,. ,, ,: ,< ,> ,\ ,/
+           T    F             F0              T             T                  T                    T                    F                  T           F            F             T  F  F  F  F0 T  F  F  T  F
+           :    word:         0:              :[-]          :(-)               :{AA}                :"-"                 :<->               :<x>        :word        :0            :' :+ :- :. :, :: :< :> :\ :/
+           F    T             T               F             F                  F                    F                    F                  F           F>           F>            F> F> F> F> F> F  F  F  F> F>
+           <    narr<         0<              <[-]          <(-)               <{AA}                <"-"                 <<->               <<x>        <narr        <0            <' <+ <- <. <, <: << <> <\ </
+           F    T             T               F             F                  F                    F                    F                  T           T            T             T  F  F  T  T  F  F  F  T  Fa
+           >    narr>         0>              >[-]          >(-)               >{AA}                >"-"                 ><->               ><x>        >narr        >0            >' >+ >- >. >, >: <> >> >\ >/
+           T    T             T               T             T                  T                    T                    T                  T           T            T             T  T  T  T  T  T  T  T  T  T
+           \    word\         0\              \[-]          \(-)               \{AA}                \"-"                 \<->               \<x>        \word        \0            \' \+ \- \. \, \: \< \> \\ \/
+           F    Fa            F1/1            F             F                  F                    F                    T                  F           F            F             F  F  F  F  F  F  T  T  T  F
+           /    word/         1/              /[-]          /(-)               /{AA}                /"-"                 /<->               /<x>        /word        /0            /' /+ /- /. /, /: /< /> /\ //
 }
 result: true
 interleave: func [a b /local r][r: copy a forall b [insert r: next r b/1 r: next r] head r]
@@ -778,7 +781,7 @@ foreach [expect trial] next head remove back tail split extents "^/" [
     ]
     if result <> true [break]
 ]
-print ["--^/" Suite Group "tests" either true = result ["passed with flying colours."] join {failed on "} [result {".}] "^/--"]
+print ["--^/" Suite Group "tests" either true = result ["passed with flying colours."] [join {failed on "} [result {".}]] "^/--"]
 
 ;  = = = = = = = 
 ; Testing's over.
