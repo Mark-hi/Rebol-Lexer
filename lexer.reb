@@ -18,13 +18,13 @@ REBOL [
         extensions for newline and no-line-comment formatting
         cycle input/output
         eval-block renaming
-		token length and/or content restrictions (scanner)
+        token length and/or content restrictions (scanner)
         more syntax testing
         C implementation (possibly auto-generated)
         editor integration
-		non-recursive cascades
-		objectify and/or modulate
-		incorporate or preferably otherwise handle Ren-C syntax changes (new issue content model and // comments and refinements in paths)
+        non-recursive cascades
+        objectify and/or modulate
+        incorporate or preferably otherwise handle Ren-C syntax changes (new issue content model and // comments and refinements in paths)
     ]
 ]
 
