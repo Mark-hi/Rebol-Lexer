@@ -16,8 +16,8 @@ REBOL [
     Future-work: [
         error token and error recovery
         extensions for newline and no-line-comment formatting
-        cycle input/output
-        eval-block renaming
+        cascade renaming (block: block/strip/piece eval-block: chunk/fiber/shred construction: wedge/wafer/crumb)
+        cyclic cascade input either directly or less preferably via wedge (#[block! ...] or #[chunk! ...])
         token length and/or content restrictions (scanner)
         more syntax testing
         C implementation (possibly auto-generated)
