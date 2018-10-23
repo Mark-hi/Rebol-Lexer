@@ -2,16 +2,29 @@ multiline: has [r l] [r: l: "" until [r: join r [l "^/"] empty? l: input] do r] 
 multiline ; to handle pasting the (upcoming) REBOL header -- this line and the line above are introductory lines and are ignored when given to DO, see the "intro-line:" rule below
 REBOL [
     Title: "Rebol Lexer (PEG)" ; not scanner, because a scanner must provide numerical overflow handling (an implementation concern), and not parser, because that would be redundant, any PEG parses something and hence is a parser
-    Description: "Intended to conform with as much as possible of^/Rebol 2, Rebol 3 Alpha, Red, Ren/C, and Pointillistic Ren,^/recognizing and partitioning textual content into (a series of)^/29 possible lexical items (lexemes)."
-    Date: 26-Dec-2016
-    Version: 1.1.2
+    Description: "Intended to conform with as much as possible of^/Rebol 2, Rebol 3 Alpha, Red, Ren-C, and Pointillistic Ren,^/recognizing and partitioning textual content into (a series of)^/29 possible lexical items (lexemes)."
+    Date: 23-Oct-2018
+    Version: 1.1.3
     Authors: [[Mark Ingram]]
     Exports: [rebol? analyze html-after]
     Usage: [clear output if rebol? source: read %some-file.reb [analyze output write %some-file.html html-after source]]
     History: [
         10-Dec-2016 1.1.1 [Mark Ingram] {Initial revision.}
         26-Dec-2016 1.1.2 [Mark Ingram] {Added syntax highlighting.}
-        24-Nov-2018 1.1.3 [Mark Ingram] {Improved documentation, debugging, and testing.}
+        23-Oct-2018 1.1.3 [Mark Ingram] {Added 'Future-work block to header.}
+    ]
+    Future-work: [
+        error token and error recovery
+        extensions for newline and no-line-comment formatting
+        cycle input/output
+        eval-block renaming
+		token length and/or content restrictions (scanner)
+        more syntax testing
+        C implementation (possibly auto-generated)
+        editor integration
+		non-recursive cascades
+		objectify and/or modulate
+		incorporate or preferably otherwise handle Ren-C syntax changes (new issue content model and // comments and refinements in paths)
     ]
 ]
 
@@ -123,15 +136,16 @@ pound-grabs: charset "^"{[("                                            ; all th
 ; codepoint charsets
 ascii-nullc:                                difference ascii nullc
 ascii-nullc-ditto:                          difference ascii-nullc charset {"}
-ascii-nullc-ditto-rangl:                    difference ascii-nullc charset {">}
+ascii-nullc-prime:                          difference ascii-nullc charset {'}
+ascii-nullc-ditto-prime-rangl:              difference ascii-nullc charset {"'>}
 graph-caret-ditto-lf|cr:                    difference graph union lf|cr charset {^(5E)"}
 graph-caret-lbrac-rbrac:                    difference graph charset "^(5E){}"
 graph-caret-colon-semic-ditto-percy:        difference graph charset {^(5E):^(3B)"%}
 graph-delim-percy:                          difference difference graph delim charset "%"
 graph-delim-colon-percy:                    difference difference graph delim charset ":%"
 graph-delim-whorl-percy:                    difference difference graph delim charset "@%"
-graph-delim-whorl-colon-percy:              difference difference graph delim charset "@:%"
 graph-delim-caret-colon-percy:              difference difference graph delim charset "^(5E):%"
+graph-delim-whorl-colon-percy:              difference difference graph delim charset "@:%"
 graph-delim-digit-whorl-colon-percy:        difference difference difference graph delim digit charset "@:%"
 graph-delim-whorl-cache-colon-percy:        difference difference graph delim charset "@$:%"
 graph-delim-whorl-caret-colon-percy:        difference difference graph delim charset "@^(5E):%"
@@ -139,19 +153,20 @@ graph-delim-digit-whorl-cache-colon-percy:  difference difference difference gra
 
 ; codepoint rules
 chars-nullc-ditto:                          [ascii-nullc-ditto | upper]
-chars-nullc-ditto-rangl:                    [ascii-nullc-ditto-rangl | upper]
-ghigh-delim-percy:                          [graph-delim-percy | upper]
-ghigh-delim-colon-percy:                    [graph-delim-colon-percy | upper]
-ghigh-delim-whorl-percy:                    [graph-delim-whorl-percy | upper]
-ghigh-delim-whorl-colon-percy:              [graph-delim-whorl-colon-percy | upper]
-ghigh-delim-digit-whorl-colon-percy:        [graph-delim-digit-whorl-colon-percy | upper]
-ghigh-delim-whorl-cache-colon-percy:        [graph-delim-whorl-cache-colon-percy | upper]
-ghigh-delim-digit-whorl-cache-colon-percy:  [graph-delim-digit-whorl-cache-colon-percy | upper]
+chars-nullc-prime:                          [ascii-nullc-prime | upper]
+chars-nullc-ditto-prime-rangl:              [ascii-nullc-ditto-rangl | upper]
 ghigh-caret-ditto-lf|cr:                    [graph-caret-ditto-lf|cr | upper]
 ghigh-caret-lbrac-rbrac:                    [graph-caret-lbrac-rbrac | upper]
 ghigh-caret-colon-semic-ditto-percy:        [graph-caret-colon-semic-ditto-percy | upper]
+ghigh-delim-percy:                          [graph-delim-percy | upper]
+ghigh-delim-colon-percy:                    [graph-delim-colon-percy | upper]
+ghigh-delim-whorl-percy:                    [graph-delim-whorl-percy | upper]
 ghigh-delim-caret-colon-percy:              [graph-delim-caret-colon-percy | upper]
+ghigh-delim-whorl-colon-percy:              [graph-delim-whorl-colon-percy | upper]
+ghigh-delim-digit-whorl-colon-percy:        [graph-delim-digit-whorl-colon-percy | upper]
+ghigh-delim-whorl-cache-colon-percy:        [graph-delim-whorl-cache-colon-percy | upper]
 ghigh-delim-whorl-caret-colon-percy:        [graph-delim-whorl-caret-colon-percy | upper]
+ghigh-delim-digit-whorl-cache-colon-percy:  [graph-delim-digit-whorl-cache-colon-percy | upper]
 hex-4:                                      [0 4 hexan]                                        ; legacy -- BMP, including surrogates
 hex4n:                                      [not [["D" | "d"] hexal 2 hexan] hex-4]            ; legacy -- BMP non-surrogates -- as yet unused
 hex-6:                                      ["10" 4 hexan | opt "0" 0 5 hexan]                 ; all 1,114,112 Unicode codepoints, including surrogates, in hex
@@ -317,7 +332,7 @@ binary:                    ["2#{" any blank binary-base-2 "}" | [opt "16"] "#{" 
 ; tags permitted to begin with arrow-words that start with "<", if it is as "</" or isn't otherwise a (set-) word, url, or path -- </> <:> are tags, but <> is word, <>/<> is path, <:/> is url, and <>:[]<> is set-word, block, word
  tag-begin:                ["<" not [not "/" any arrow any ":" ["/" | path-end]]] ; testcase: a/a<:/> should fail -- meaning <:/> should never match tag-begin (as well it should not, considering that <:/> is a perfectly good url)
 ; CAVEAT (fix): tags no longer incorrectly accept ill-formed utf8 -- testcase #{3CA03E} (binary) currently loads in R3 as a tag, but should fail to match anything in this PEG
-tag:                       [tag-begin any arrow any [chars-nullc-ditto-rangl | {"} any chars-nullc-ditto {"}] ">"]
+tag:                       [tag-begin any arrow any [chars-nullc-ditto-prime-rangl | {"} any chars-nullc-ditto {"} | {'} any chars-nullc-prime {'}] ">"]
 comment-rule:              ["^(3B)" endln] ; stops before the ending delimiter (the newline), leaving it behind for the calling rule to match
 
 ; ----------
