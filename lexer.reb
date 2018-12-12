@@ -798,7 +798,7 @@ foreach [expect trial] next head remove back tail split extents "^/" [
 ]
 print ["--^/" Suite Group "tests" either true = result ["passed with flying colours."] [join {failed on "} [result {".}]] "^/--"]
 
-;  = = = = = = = 
+;  = = = = = = =
 ; Testing's over.
 ; = = = = = = = =
 
