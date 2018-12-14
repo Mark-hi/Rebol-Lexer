@@ -3,15 +3,33 @@ multiline ; to handle pasting the (upcoming) REBOL header -- this line and the l
 REBOL [
     Title: "Rebol Lexer (PEG)" ; not scanner, because a scanner must provide numerical overflow handling (an implementation concern), and not parser, because that would be redundant, any PEG parses something and hence is a parser
     Description: "Intended to conform with as much as possible of^/Rebol 2, Rebol 3 Alpha, Red, Ren-C, and Pointillistic Ren,^/recognizing and partitioning textual content into (a series of)^/29 possible lexical items (lexemes)."
-    Date: 23-Oct-2018
-    Version: 1.1.3
+    Date: 14-Dec-2018
+    Version: 1.1.4
     Authors: [[Mark Ingram]]
+    Needs: []
+    Depends: [ ; list of Rebol functions called by this lexer (when neither testing nor debugging) - equivalents must be provided to enable interpreting by any other PEG parser
+        set-word! charset string? binary? union difference
+    ]
+    Defines: [ ; list of functions defined and called by this lexer (when neither testing nor debugging) - equivalents must be provided to enable interpreting by any other PEG parser
+        make-case-free
+        rebol? ; not called
+    ]
+    Strings: [ ; list of Rebol string syntax forms used by this lexer (when neither testing nor debugging) that need to be interpreted by any other PEG parser
+        "" #"" {} "^(AA)" "^(AAAA)" "^/" "^M" "^""
+    ]
+    PEG: [ ; list of PEG (parse) dialect forms used by this lexer (when neither testing nor debugging) - equivalents must be provided to enable interpreting by any other PEG parser
+        set-word! () [] | if not [n n rule] [n rule] opt some any end skip and to
+    ]
     Exports: [rebol? analyze html-after]
-    Usage: [clear output if rebol? source: read %some-file.reb [analyze output write %some-file.html html-after source]]
+    Usage: [
+        parse candidate script
+        clear output if rebol? source: read %some-file.reb [analyze output write %some-file.html html-after source]
+    ]
     History: [
         10-Dec-2016 1.1.1 [Mark Ingram] {Initial revision.}
         26-Dec-2016 1.1.2 [Mark Ingram] {Added syntax highlighting.}
         23-Oct-2018 1.1.3 [Mark Ingram] {Added 'Future-work block to header.}
+        14-Dec-2018 1.1.4 [Mark Ingram] {Added dependencies to header.}
     ]
     Future-work: [
         error token and error recovery
@@ -446,10 +464,7 @@ lexemes:                   [any [liner [cascade | path | paint: copy s (x: c: co
  headed-contents:          [lexemes "]" (emitt 'Contents.) lexemes]
 script:                    [(h: false) any intro-line any bland [rebol-embed (h: true) headed-contents "]" (emitt 'End.) to end | if (not h) rebol-head (h: true) headed-contents] | if (not h) lexemes]
 
-; this function's name will be in the external context -- after the day this PEG gets turned into an object
-set 'rebol? func ["Is it rebol?" candidate [string! binary!] /local result][paint-chart: none if result: parse candidate script [return paint-chart] result]
-
-; debugging is currently hardwired into the PEG, but is easy to wire off (see below) and it is possible to remove (delete: from here on, all set-words and ()-code in rules except 'script and 'brace-string, and all COPYs in rules)
+; debugging is currently hardwired into the PEG, but is easy to wire off (see below) and it is possible to remove (delete: here on, set-words and ()-code in rules except non-debug in 'upper, 'script, and 'brace-string, all COPYs)
 type: copy ""                ; holds a display form of the isolated, non-recursive, lexeme type that matched -- sometimes varying depending on the individual matching clause
 deco: copy []                ; holds path decorations, which recurse, so, is a stack
 s: copy x: copy c: copy ""   ; hold item match contents where recursion is guaranteed not to occur, but spans alternatives, so must be set (s) or reset (x c) before trying alternate matches
@@ -458,6 +473,9 @@ z: copy t: copy ""           ; hold 'zoned-time auxiliary captures, emitted and 
 lined: 0                     ; holds how many newlines were encountered, unnecessary but may catch something -- could otherwise be boolean, modifying the newline sanity testing slightly
 
 emit: emitt: show: func [x /only] [] ; debugging and testing functions called by ()-code in the PEG -- the remainder of this file can now be skipped to safely wire off debugging and to slightly more safely not perform any testing
+
+; this function's name will be in the external context -- when this gets properly wrapped
+set 'rebol? func ["Is it rebol?" candidate [string! binary!] /local result][paint-chart: none if result: parse candidate script [return paint-chart] result]
 
 ;===================
 ;  SYNTAX COMPLETE
