@@ -7,23 +7,22 @@ REBOL [
     Version: 1.1.4
     Authors: [[Mark Ingram]]
     Needs: []
-    Depends: [ ; list of Rebol functions called by this lexer (when neither testing nor debugging) - equivalents must be provided to enable interpreting by any other PEG parser
+    Depends: [ ; list of Rebol functions called by this lexer when neither testing nor debugging - equivalents must be provided to enable interpreting by any other PEG parser
         set-word! charset string? binary? union difference
     ]
-    Defines: [ ; list of functions defined and called by this lexer (when neither testing nor debugging) - equivalents must be provided to enable interpreting by any other PEG parser
+    Defines: [ ; list of functions defined and used by this lexer when neither testing nor debugging - equivalents must be provided to enable interpreting by any other PEG parser
         make-case-free
-        rebol? ; not called
     ]
-    Strings: [ ; list of Rebol string syntax forms used by this lexer (when neither testing nor debugging) that need to be interpreted by any other PEG parser
+    String-forms: [ ; list of Rebol string syntax forms used by this lexer when neither testing nor debugging that need to be interpreted by any other PEG parser
         "" #"" {} "^(AA)" "^(AAAA)" "^/" "^M" "^""
     ]
-    PEG: [ ; list of PEG (parse) dialect forms used by this lexer (when neither testing nor debugging) - equivalents must be provided to enable interpreting by any other PEG parser
+    Parse-forms: [ ; list of Rebol 'parse (a PEG interpreter) dialect forms used by this lexer when neither testing nor debugging - equivalents must be provided to enable interpreting by any other PEG parser
         set-word! () [] | if not [n n rule] [n rule] opt some any end skip and to
     ]
     Exports: [rebol? analyze html-after]
     Usage: [
-        parse candidate script
-        clear output if rebol? source: read %some-file.reb [analyze output write %some-file.html html-after source]
+        parse candidate script ; yes/no
+        clear output if rebol? source: read %some-file.reb [analyze output write %some-file.html html-after source] ; debugging - provides token type counts and syntax highlighting (as HTML)
     ]
     History: [
         10-Dec-2016 1.1.1 [Mark Ingram] {Initial revision.}
@@ -36,13 +35,14 @@ REBOL [
         extensions for newline and no-line-comment formatting
         cascade renaming (block: block/strip/piece eval-block: chunk/fiber/shred construction: wedge/wafer/crumb)
         cyclic cascade input either directly or less preferably via wedge (#[block! ...] or #[chunk! ...])
-        token length and/or content restrictions (scanner)
+        token length and/or content restrictions (making this lexer a scanner)
         more syntax testing
         C implementation (possibly auto-generated)
         editor integration
         non-recursive cascades
         objectify and/or modulate
-        incorporate or preferably otherwise handle Ren-C syntax changes (new issue content model and // comments and refinements in paths)
+        provide testing as a function
+        incorporate or preferably otherwise handle the new Ren-C syntax changes (so far: issue content model changes, // comments, refinements in paths, ...)
     ]
 ]
 
@@ -101,7 +101,7 @@ utf8*: [utf82 | utf83 | utf84]                                          ; all 1,
 putf8: ["%" octal hexan | ptf82 | ptf83 | ptf84]                        ; all 1,112,064 non-surrogate Unicode codepoints, including all of ASCII, as sequences of percent-encoded UTF-8 code-units [Ed. -- not yet used in any rules]
 hexal: charset "89ABCDEFabcdef"                                         ; used in non-ASCII UTF-8 percent-encoding -- if this is the first of two hexadecimal digits encoding a byte, then that byte has its most significant bit set
 legac: charset [#"^(80)" - #"^(D7FF)" #"^(E000)" - #"^(FFFF)"]          ; the 63361 non-ASCII non-surrogate Unicode codepoints supported by R3 -- for parsing R3 string sources by character, never to be used on binary source files
-upper: [marki: if (string? marki) legac | if (binary? marki) utf8*]     ; this rule can (obviously) be made simpler by making the target restricted in type -- but this PEG prioritizes inclusiveness and flexibility over efficiency
+upper: [marki: if (string? marki) legac | if (binary? marki) utf8*]     ; this rule can (obviously) be made simpler by making the target restricted in type -- but this PEG prioritises inclusiveness and flexibility over efficiency
 
 ; characters charsets -- though the syntax-controlling characters are all ASCII, all UTF-8 (and in comments, any content) is permitted -- but a null codepoint (Unicode U+000000) always means end-of-file no matter where it appears
 alpha: charset "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"   ;  52 ; majuscule and minuscule are not differentiated syntactically in caret escapes, exponential notation, month names, or hexadecimal binary lexical forms
@@ -203,7 +203,7 @@ ghigh-delim-whorl-caret-colon+perch:        [ghigh-delim-whorl-caret-colon-percy
 ; rule generators -- in addition to 'charset, 'difference, and 'union
 ; this PEG is intended to match both strings and binaries, but 'parse can only do the latter case-sensitively -- hence explicit dual-casing is required, and these utilities help keep 'cname and the individual month rules readable
  case-free: func ["Return a string's case-free matching rule." s [string!] /local r][r: copy [] foreach c s [append/only r reduce [to string! uppercase c '| to string! lowercase c]] r]
-make-case-free: func ["Replace every string in a rule with its case-free matching rule." rule "modified" [block!]][forall rule [if string? first rule [change/only rule case-free first rule]] head rule]
+make-case-free: func ["Replace every string in a rule with its case-free matching rule." rule "the rule - will be modified in-place" [block!]][forall rule [if string? first rule [change/only rule case-free first rule]] head rule]
 
 ; character-escaping rules -- for strings -- strings are provided with three kinds of escaping, caret-char "^C", caret-name "^(name)", and caret-value "^(hex-value)", but not percent-encoding
 ; CAVEAT (fix): escaping no longer incorrectly permits carets to disappear if what follows is not a recognized caret escape sequence
@@ -603,8 +603,8 @@ analyze: func ["Report lexical statistics."
 ] ; end stats context
 set 'analyze :stats/analyze
 ;
-; testing
-;
+; testing - always safe, if unwise, to delete from here on
+;                      [Ed. -- could (should?) be provided as a function; for now, it expects to be pasted into a console.]
 Suite: "Sanity"
 Group: "breadth"
 test-one: func [x [block!]] [print ["... Test" join x/1 ":"] true = try [all x]]
