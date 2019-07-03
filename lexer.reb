@@ -30,19 +30,19 @@ REBOL [
         23-Oct-2018 1.1.3 [Mark Ingram] {Added 'Future-work block to header.}
         14-Dec-2018 1.1.4 [Mark Ingram] {Added dependencies to header.}
     ]
-    Future-work: [
+    Future-work: [ ; not in priority order ; not complete
         error token and error recovery
-        extensions for newline and no-line-comment formatting
-        cascade renaming (block: block/strip/piece eval-block: chunk/fiber/shred construction: wedge/wafer/crumb)
-        cyclic cascade input either directly or less preferably via wedge (#[block! ...] or #[chunk! ...])
+        extensions for newline and no-line-comment formatting (possibly including whitespace preservation variants)
+        cascade naming of parts (block: block/strip/piece eval-block: chunk/fiber/shred construction: wedge/wafer/crumb)
+        non-tree cascade input either directly (#nnn#) or less preferably via construction (#[block! ...] or #[eval-block! ...])
         token length and/or content restrictions (making this lexer a scanner)
         more syntax testing
-        C implementation (possibly auto-generated)
+        C and Rebol2 and other implementations (possibly auto-generated)
         editor integration
         non-recursive cascades
         objectify and/or modulate
         provide testing as a function
-        incorporate or preferably otherwise handle the new Ren-C syntax changes (so far: issue content model changes, // comments, refinements in paths, ...)
+        incorporate or preferably otherwise handle the new Ren-C syntax changes
     ]
 ]
 
@@ -104,13 +104,13 @@ legac: charset [#"^(80)" - #"^(D7FF)" #"^(E000)" - #"^(FFFF)"]          ; the 63
 upper: [marki: if (string? marki) legac | if (binary? marki) utf8*]     ; this rule can (obviously) be made simpler by making the target restricted in type -- but this PEG prioritises inclusiveness and flexibility over efficiency
 
 ; characters charsets -- though the syntax-controlling characters are all ASCII, all UTF-8 (and in comments, any content) is permitted -- but a null codepoint (Unicode U+000000) always means end-of-file no matter where it appears
-alpha: charset "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"   ;  52 ; majuscule and minuscule are not differentiated syntactically in caret escapes, exponential notation, month names, or hexadecimal binary lexical forms
+alpha: charset "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"   ;  52 ; majuscule and minuscule are not differentiated in lexemes except for character, and are not preserved in all numeric and (hexadecimal) binary lexemes
 digit: charset "0123456789"                                             ;  10 ; the only digits
 runic: charset "!?*=&|~`_^(5E)"                                         ;  10 ; non-alphanumerics that act like letters when used anywhere in words -- note that this includes the caret, ruling out its usage in escaping word forms
 specl: charset "@#$%'+-.,:<>\"                                          ;  13 ; lexeme determiners that cannot ("@#$%:,") or, in specific circumstances, can ("'+-.<>"), be in words, and backslash, an input form of slash for files
 delim: charset {[](){}"/^(3B)}                                          ;   9 ; delimiters, including the semi-colon -- all can terminate the current lexeme, and some ("[({", double-quote, and semi-colon) also begin their new one
 graph: union union union union alpha digit runic specl delim            ;  94 ; graphical characters -- the ASCII visible glyphs
-cntrl: charset [0 - 31 127]                                             ;  33 ; control characters, including the end of line characters LF and CR
+cntrl: charset [0 - 31 127]                                             ;  33 ; control characters -- all (with blank) are item separators, sequences of which are transformed into one blank, or one newline (LF) if any are present
 ascii: union union graph cntrl charset " "                              ; 128 ; every 7-bit character -- monobyte means entire single, and thus, holobyte utf8 [Ed. -- better than unibyte, but both are better than "not multibyte"]
 
 ; words charsets
@@ -129,7 +129,7 @@ bin64: union union alpha digit charset "+/"                             ; the pe
 
 ; strings charsets
 caret: charset "^(5E)"                                                  ; the caret introduces a character escape in strings, quoted files (fewer available), and bare files (very few available)
-hatch: charset "@/-!~[\]_"                                              ; the non-alphabetic characters that have a "standard" meaning as character escapes
+hatch: charset "@/-[\]!_~"                                              ; the non-alphabetic characters that have been given a meaning as character escapes (9 + 26 = 35, /- duplicate JI, so all 33 controls have character escapes)
 
 ; numerics charsets
 signc: charset "+-"                                                     ; one sign character
