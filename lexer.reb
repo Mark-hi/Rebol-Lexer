@@ -2,7 +2,7 @@ multiline: has [r l] [r: l: "" until [r: join r [l "^/"] empty? l: input] do r] 
 multiline ; to handle pasting the (upcoming) REBOL header -- this line and the line above are introductory lines and are ignored when given to DO, see the "intro-line:" rule below
 REBOL [
     Title: "Rebol Lexer (PEG)" ; not scanner, because a scanner must provide numerical overflow handling (an implementation concern), and not parser, because that would be redundant, any PEG parses something and hence is a parser
-    Description: "Intended to conform with as much as possible of^/Rebol 2, Rebol 3 Alpha, Red, Ren-C, and Pointillistic Ren,^/recognizing and partitioning textual content into (a series of)^/29 possible lexical items (lexemes)."
+    Description: "Intended to conform with as much as possible of^/Rebol 2, Rebol 3 Alpha, Red, Ren-C, and Pointillistic Ren,^/delineate raw UTF-8 or UCS-2 textual input bytes into a tree of^/29 possible lexical items (lexemes)."
     Date: 14-Dec-2018
     Version: 1.1.4
     Authors: [[Mark Ingram]]
@@ -21,8 +21,8 @@ REBOL [
     ]
     Exports: [rebol? analyze html-after]
     Usage: [
-        parse candidate script ; yes/no
-        clear output if rebol? source: read %some-file.reb [analyze output write %some-file.html html-after source] ; debugging - provides token type counts and syntax highlighting (as HTML)
+        parse candidate script ; yes ([]) or no (false), the input can form a syntactically valid lexical item tree; the "yes" value holds a raw lexeme map if debugging is enabled
+        clear output if rebol? source: read %some-file.reb [analyze output write %some-file.html html-after source] ; debugging - provide lexeme type counts and syntax highlighting as an HTML file
     ]
     History: [
         10-Dec-2016 1.1.1 [Mark Ingram] {Initial revision.}
@@ -462,7 +462,7 @@ lexemes:                   [any [liner [cascade | path | paint: copy s (x: c: co
  rebol-embed:              [any intro-line any bland "[" any empty-line any bland rebol-word "[" (emitt 'Embedded.)]
  rebol-head:               [any intro-line any bland rebol-word "[" (emitt 'Headed.)]
  headed-contents:          [lexemes "]" (emitt 'Contents.) lexemes]
-script:                    [(h: false) any intro-line any bland [rebol-embed (h: true) headed-contents "]" (emitt 'End.) to end | if (not h) rebol-head (h: true) headed-contents] | if (not h) lexemes]
+script:                    [(h: false) any intro-line any bland [rebol-embed (h: true) headed-contents "]" (emitt 'End.) to end | if (not h) rebol-head (h: true) headed-contents] | if (not h) (emitt 'Unheaded.) lexemes]
 
 ; debugging is currently hardwired into the PEG, but is easy to wire off (see below) and it is possible to remove (delete: here on, set-words and ()-code in rules except non-debug in 'upper, 'script, and 'brace-string, all COPYs)
 type: copy ""                ; holds a display form of the isolated, non-recursive, lexeme type that matched -- sometimes varying depending on the individual matching clause
@@ -474,8 +474,8 @@ lined: 0                     ; holds how many newlines were encountered, unneces
 
 emit: emitt: show: func [x /only] [] ; debugging and testing functions called by ()-code in the PEG -- the remainder of this file can now be skipped to safely wire off debugging and to slightly more safely not perform any testing
 
-; this function's name will be in the external context -- when this gets properly wrapped
-set 'rebol? func ["Is it rebol?" candidate [string! binary!] /local result][paint-chart: none if result: parse candidate script [return paint-chart] result]
+; this function's name will be in the external context when this gets properly wrapped into either an object or a module
+set 'rebol? func ["Is it rebol? If so, return its lexemes, if you can, and there are any." candidate [string! binary!] /local result][paint-chart: [] if result: parse candidate script [return paint-chart] result]
 
 ;===================
 ;  SYNTAX COMPLETE
